@@ -1,0 +1,792 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
+    <title>無機化学ケミカル・ローグライク (Ver.2)</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+        user-select: none;
+      }
+      body {
+        font-family: "Helvetica Neue", Arial, sans-serif;
+        background-color: #1a1a1a;
+        color: #fff;
+        height: 100vh;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+      }
+      #game-container {
+        max-width: 480px;
+        width: 100%;
+        height: 100%;
+        margin: 0 auto;
+        background-color: #2c2c2c;
+        display: flex;
+        flex-direction: column;
+        position: relative;
+        border-left: 1px solid #444;
+        border-right: 1px solid #444;
+      }
+
+      /* ヘッダー情報 */
+      #header {
+        padding: 12px;
+        display: flex;
+        justify-content: space-between;
+        background-color: #222;
+        font-size: 14px;
+        border-bottom: 2px solid #444;
+        font-weight: bold;
+      }
+      #player-hp {
+        color: #2ecc71;
+      }
+
+      /* 敵エリア */
+      #enemy-area {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+        position: relative;
+      }
+      #enemy-sprite {
+        width: 110px;
+        height: 110px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 55px;
+        box-shadow: 0 0 20px rgba(255, 255, 255, 0.15);
+        transition: transform 0.2s;
+        background: rgba(255, 255, 255, 0.05);
+      }
+      #enemy-name {
+        font-size: 18px;
+        font-weight: bold;
+        margin-top: 12px;
+      }
+      #enemy-hp-bar {
+        width: 75%;
+        height: 12px;
+        background-color: #444;
+        border-radius: 6px;
+        margin-top: 8px;
+        overflow: hidden;
+        border: 1px solid #555;
+      }
+      #enemy-hp-fill {
+        height: 100%;
+        width: 100%;
+        background-color: #e74c3c;
+        transition: width 0.2s ease-out;
+      }
+      #enemy-color-badge {
+        margin-top: 8px;
+        padding: 4px 14px;
+        border-radius: 20px;
+        font-size: 13px;
+        font-weight: bold;
+        color: #000;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+      }
+
+      /* ログエリア */
+      #log-area {
+        height: 100px;
+        background-color: #1e1e1e;
+        padding: 10px;
+        font-size: 13px;
+        text-align: center;
+        color: #ddd;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        border-top: 1px solid #333;
+        border-bottom: 1px solid #333;
+        line-height: 1.4;
+      }
+
+      /* 数字や特定メッセージの途中改行を防ぐクラス */
+      .no-wrap {
+        white-space: nowrap;
+      }
+
+      /* スロット・アクション選択エリア */
+      #selection-area {
+        padding: 10px;
+        display: flex;
+        justify-content: center;
+        gap: 15px;
+        background-color: #252525;
+        height: 95px;
+        align-items: center;
+      }
+      .selected-slot {
+        width: 65px;
+        height: 75px;
+        border: 2px dashed #666;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 15px;
+        font-weight: bold;
+        color: #888;
+        background-color: #1a1a1a;
+        cursor: pointer;
+      }
+      .selected-slot.filled {
+        border-style: solid;
+        border-color: #3498db;
+        color: #fff;
+        background: #2c3e50;
+      }
+      #action-btn {
+        padding: 14px 28px;
+        font-size: 16px;
+        font-weight: bold;
+        background-color: #27ae60;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        display: none;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+      }
+      #action-btn:active {
+        background-color: #219653;
+        transform: scale(0.98);
+      }
+
+      /* 手札エリア */
+      #hand-area {
+        background-color: #222;
+        padding: 12px 10px 20px 10px;
+        border-top: 2px solid #444;
+      }
+      #hand-label {
+        font-size: 12px;
+        color: #aaa;
+        margin-bottom: 8px;
+        padding-left: 5px;
+        font-weight: bold;
+      }
+      #cards-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        justify-content: center;
+        max-height: 190px;
+        overflow-y: auto;
+      }
+
+      /* カードスタイル */
+      .card {
+        width: 68px;
+        height: 85px;
+        background: linear-gradient(135deg, #34495e, #2c3e50);
+        border: 2px solid #7f8c8d;
+        border-radius: 6px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: space-between;
+        padding: 6px 2px;
+        cursor: pointer;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        transition:
+          transform 0.1s,
+          opacity 0.2s;
+      }
+      .card:active {
+        transform: scale(0.95);
+      }
+      .card.cation {
+        border-color: #f1c40f;
+        background: linear-gradient(135deg, #2d3436, #1e272e);
+      }
+      .card.anion {
+        border-color: #9b59b6;
+        background: linear-gradient(135deg, #2d3436, #1e272e);
+      }
+      .card.selected {
+        opacity: 0.3;
+        pointer-events: none;
+        transform: scale(0.9);
+      }
+      .card-formula {
+        font-size: 16px;
+        font-weight: bold;
+        color: #fff;
+        text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+      }
+      .card-type {
+        font-size: 8px;
+        color: #fff;
+        padding: 1px 4px;
+        border-radius: 3px;
+        font-weight: bold;
+      }
+      .card.cation .card-type {
+        background-color: #d35400;
+      }
+      .card.anion .card-type {
+        background-color: #8e44ad;
+      }
+
+      /* アニメーション */
+      @keyframes shake {
+        0% {
+          transform: translate(2px, 2px) rotate(0deg);
+        }
+        20% {
+          transform: translate(-3px, -1px) rotate(-2deg);
+        }
+        40% {
+          transform: translate(-1px, 2px) rotate(1deg);
+        }
+        60% {
+          transform: translate(3px, -2px) rotate(-1deg);
+        }
+        80% {
+          transform: translate(-2px, 1px) rotate(2deg);
+        }
+        100% {
+          transform: translate(1px, -1px) rotate(0deg);
+        }
+      }
+      .shake {
+        animation: shake 0.4s ease-in-out;
+      }
+
+      /* ゲームオーバー画面 */
+      #gameover-screen {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.9);
+        display: none;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 10;
+        padding: 20px;
+        text-align: center;
+      }
+      #gameover-screen h1 {
+        color: #e74c3c;
+        font-size: 36px;
+        margin-bottom: 20px;
+      }
+      #gameover-screen p {
+        font-size: 18px;
+        margin-bottom: 10px;
+      }
+      #gameover-btn {
+        padding: 14px 28px;
+        font-size: 16px;
+        font-weight: bold;
+        background-color: #3498db;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        margin-top: 20px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+      }
+    </style>
+  </head>
+  <body>
+    <div id="game-container">
+      <div id="header">
+        <div id="stage-display">STAGE: 1</div>
+        <div id="player-hp">❤️ HP: 100 / 100</div>
+        <div id="score-display">SCORE: 0</div>
+      </div>
+
+      <div id="enemy-area">
+        <div id="enemy-sprite">👻</div>
+        <div id="enemy-name">未知の物質</div>
+        <div id="enemy-hp-bar"><div id="enemy-hp-fill"></div></div>
+        <div id="enemy-color-badge">属性: 白</div>
+      </div>
+
+      <div id="log-area">
+        カードを2枚タップして攻撃<br />敵の属性と色が一致する沈殿・錯イオンを作ると攻撃力上昇
+      </div>
+
+      <div id="selection-area">
+        <div id="slot-0" class="selected-slot" onclick="deselectCard(0)">
+          1枚目
+        </div>
+        <div id="slot-1" class="selected-slot" onclick="deselectCard(1)">
+          2枚目
+        </div>
+        <button id="action-btn" onclick="executeReaction()">攻撃</button>
+      </div>
+
+      <div id="hand-area">
+        <div id="hand-label">手札 (イオン・試薬カード)</div>
+        <div id="cards-container"></div>
+      </div>
+
+      <!-- ゲームオーバー画面 -->
+      <div id="gameover-screen">
+        <h1>GAME OVER</h1>
+        <p id="result-stage">到達ステージ: STAGE 1</p>
+        <p id="result-score">最終スコア: 0</p>
+        <button id="gameover-btn" onclick="initGame()">もう一度挑戦する</button>
+      </div>
+    </div>
+
+    <script>
+      // --- データ定義 ---
+      const CARDS = [
+        { id: "Ag", name: "銀イオン", formula: "Ag⁺", type: "cation" },
+        { id: "Cu", name: "銅(II)イオン", formula: "Cu²⁺", type: "cation" },
+        { id: "Fe3", name: "鉄(III)イオン", formula: "Fe³⁺", type: "cation" },
+        { id: "Ba", name: "バリウムイオン", formula: "Ba²⁺", type: "cation" },
+        { id: "Pb", name: "鉛(II)イオン", formula: "Pb²⁺", type: "cation" },
+        { id: "Fe2", name: "鉄(II)イオン", formula: "Fe²⁺", type: "cation" },
+        { id: "Zn2", name: "亜鉛イオン", formula: "Zn²⁺", type: "cation" },
+
+        { id: "Cl", name: "塩化物イオン", formula: "Cl⁻", type: "anion" },
+        { id: "SO4", name: "硫酸イオン", formula: "SO₄²⁻", type: "anion" },
+        { id: "OH", name: "水酸化物イオン", formula: "OH⁻", type: "anion" },
+        { id: "NH3", name: "アンモニア水", formula: "NH₃", type: "anion" },
+        { id: "S", name: "硫化物イオン", formula: "S²⁻", type: "anion" },
+        {
+          id: "CrO4",
+          name: "クロム酸イオン",
+          formula: "CrO₄²⁻",
+          type: "anion",
+        },
+        { id: "I", name: "ヨウ化物イオン", formula: "I⁻", type: "anion" },
+      ];
+
+      const REACTION_TABLE = [
+        // --- 白色 ---
+        {
+          pairs: ["Ag", "Cl"],
+          color: "白色",
+          product: "AgCl の沈殿",
+          baseDmg: 10,
+        },
+        {
+          pairs: ["Ba", "SO4"],
+          color: "白色",
+          product: "BaSO₄ の沈殿",
+          baseDmg: 10,
+        },
+        {
+          pairs: ["Pb", "Cl"],
+          color: "白色",
+          product: "PbCl₂ の沈殿",
+          baseDmg: 10,
+        },
+        {
+          pairs: ["Pb", "SO4"],
+          color: "白色",
+          product: "PbSO₄ の沈殿",
+          baseDmg: 10,
+        },
+        {
+          pairs: ["Zn", "OH"],
+          color: "白色",
+          product: "Zn(OH)₂ の沈殿",
+          baseDmg: 10,
+        },
+        {
+          pairs: ["Zn", "NH3"],
+          color: "白色",
+          product: "Zn(OH)₂ の沈殿",
+          baseDmg: 10,
+        },
+        {
+          pairs: ["Zn", "S"],
+          color: "白色",
+          product: "ZnS の沈殿",
+          baseDmg: 10,
+        },
+
+        // --- 赤褐色・黄褐色・褐色 ---
+        {
+          pairs: ["Fe3", "OH"],
+          color: "赤褐色",
+          product: "Fe(OH)₃ の沈殿",
+          baseDmg: 15,
+        },
+        {
+          pairs: ["Ag", "CrO4"],
+          color: "赤褐色",
+          product: "Ag₂CrO₄ の沈殿",
+          baseDmg: 15,
+        },
+        {
+          pairs: ["Fe3", "Fe3"],
+          color: "黄褐色",
+          product: "Fe³⁺ (水和イオン)",
+          baseDmg: 20,
+        },
+        {
+          pairs: ["Ag", "OH"],
+          color: "褐色",
+          product: "Ag₂O の沈殿",
+          baseDmg: 15,
+        },
+        {
+          pairs: ["Ag", "NH3"],
+          color: "褐色",
+          product: "Ag₂O の沈殿",
+          baseDmg: 15,
+        },
+
+        // --- 黄色 ---
+        {
+          pairs: ["Pb", "I"],
+          color: "黄色",
+          product: "PbI₂ の沈殿",
+          baseDmg: 20,
+        },
+        {
+          pairs: ["Ba", "CrO4"],
+          color: "黄色",
+          product: "BaCrO₄ の沈殿",
+          baseDmg: 20,
+        },
+        {
+          pairs: ["Pb", "CrO4"],
+          color: "黄色",
+          product: "PbCrO₄ の沈殿",
+          baseDmg: 20,
+        },
+        {
+          pairs: ["CrO4", "CrO4"],
+          color: "黄色",
+          product: "CrO₄²⁻ (水和イオン)",
+          baseDmg: 20,
+        },
+
+        // --- 青色・深青色 ---
+        {
+          pairs: ["Cu", "Cu"],
+          color: "青色",
+          product: "Cu²⁺ (水和イオン)",
+          baseDmg: 25,
+        },
+        {
+          pairs: ["Cu", "OH"],
+          color: "青白色",
+          product: "Cu(OH)₂ の沈殿",
+          baseDmg: 20,
+        },
+        {
+          pairs: ["Cu", "NH3"],
+          color: "深青色",
+          product: "[Cu(NH₃)₄]²⁺ (錯イオン)",
+          baseDmg: 30,
+        },
+
+        // --- 黒色 ---
+        {
+          pairs: ["Cu", "S"],
+          color: "黒色",
+          product: "CuS の沈殿",
+          baseDmg: 20,
+        },
+        {
+          pairs: ["Pb", "S"],
+          color: "黒色",
+          product: "PbS の沈殿",
+          baseDmg: 20,
+        },
+        {
+          pairs: ["Ag", "S"],
+          color: "黒色",
+          product: "Ag₂S の沈殿",
+          baseDmg: 20,
+        },
+        {
+          pairs: ["Fe2", "S"],
+          color: "黒色",
+          product: "FeS の沈殿",
+          baseDmg: 20,
+        },
+
+        // --- 緑色・緑白色 ---
+        {
+          pairs: ["Fe2", "Fe2"],
+          color: "淡緑色",
+          product: "Fe²⁺ (水和イオンの色)",
+          baseDmg: 30,
+        },
+        {
+          pairs: ["Cr", "Cr"],
+          color: "暗緑色",
+          product: "Cr³⁺ (水和イオンの色)",
+          baseDmg: 30,
+        },
+        {
+          pairs: ["Fe2", "OH"],
+          color: "緑白色",
+          product: "Fe(OH)₂ の沈殿",
+          baseDmg: 20,
+        },
+      ];
+
+      const ENEMIES = [
+        { name: "シロ・コロイド", sprite: "👻", color: "白", hp: 30, atk: 8 },
+        { name: "アオ・アクア", sprite: "🧪", color: "青", hp: 35, atk: 10 },
+        {
+          name: "ヘマタイト・ゴーレム",
+          sprite: "🤖",
+          color: "褐",
+          hp: 40,
+          atk: 12,
+        },
+        {
+          name: "サルファ・キツネ",
+          sprite: "🦊",
+          color: "黄",
+          hp: 45,
+          atk: 12,
+        },
+        {
+          name: "シャドウ・ナイト",
+          sprite: "🐈‍⬛",
+          color: "黒",
+          hp: 55,
+          atk: 15,
+        },
+        {
+          name: "プラント・エレメンタル",
+          sprite: "🥦",
+          color: "緑",
+          hp: 40,
+          atk: 11,
+        },
+      ];
+      const COLOR_MAP = {
+        白: "#ffffff",
+        青: "#3498db",
+        褐: "#813b00",
+        黄: "#f1c40f",
+        黒: "#2c3e50",
+        緑: "#2ecc71",
+      };
+      // --- ゲーム状態変数 ---
+      let stage = 1;
+      let score = 0;
+      let playerHp = 100;
+      const playerMaxHp = 100;
+      let currentEnemy = null;
+      let enemyHp = 0;
+      let hand = [];
+      let selectedCards = [null, null];
+      function initGame() {
+        stage = 1;
+        score = 0;
+        playerHp = playerMaxHp;
+        document.getElementById("gameover-screen").style.display = "none";
+        spawnEnemy();
+        drawHand(true);
+        updateUI();
+      }
+      function spawnEnemy() {
+        const baseEnemy = ENEMIES[Math.floor(Math.random() * ENEMIES.length)];
+        currentEnemy = {
+          ...baseEnemy,
+          hp: Math.floor(baseEnemy.hp * (1 + (stage - 1) * 0.25)),
+          atk: Math.floor(baseEnemy.atk * (1 + (stage - 1) * 0.15)),
+        };
+        enemyHp = currentEnemy.hp;
+        document.getElementById("enemy-sprite").innerText = currentEnemy.sprite;
+        document.getElementById("enemy-name").innerText = currentEnemy.name;
+        document.getElementById("enemy-color-badge").innerText =
+          `属性: ${currentEnemy.color}`;
+        document.getElementById("enemy-color-badge").style.backgroundColor =
+          COLOR_MAP[currentEnemy.color];
+        document.getElementById("enemy-color-badge").style.color =
+          currentEnemy.color === "白" || currentEnemy.color === "黄"
+            ? "#000"
+            : "#fff";
+      }
+      function drawHand(isFirstTime = false) {
+        if (isFirstTime) {
+          hand = [];
+          for (let i = 0; i < 8; i++) {
+            hand.push(CARDS[Math.floor(Math.random() * CARDS.length)]);
+          }
+        } else {
+          for (let i = 0; i < hand.length; i++) {
+            if (hand[i] === null) {
+              hand[i] = CARDS[Math.floor(Math.random() * CARDS.length)];
+            }
+          }
+        }
+        renderHand();
+      }
+      function renderHand() {
+        const container = document.getElementById("cards-container");
+        container.innerHTML = "";
+        hand.forEach((card, index) => {
+          if (!card) return;
+          const div = document.createElement("div");
+          div.className = `card ${card.type}`;
+          if (selectedCards.includes(index)) div.classList.add("selected");
+          div.innerHTML = `<span class="card-type">${card.type === "cation" ? "陽イオン" : "陰/試薬"}</span> <span class="card-formula">${card.formula}</span> <span style="font-size:9px; color:#bdc3c7;">${card.name}</span>`;
+          div.onclick = () => selectCard(index);
+          container.appendChild(div);
+        });
+      }
+      function selectCard(index) {
+        if (selectedCards[0] === null) {
+          selectedCards[0] = index;
+        } else if (selectedCards[1] === null) {
+          selectedCards[1] = index;
+        } else {
+          return;
+        }
+        updateSelectionUI();
+        renderHand();
+      }
+      function deselectCard(slotIndex) {
+        selectedCards[slotIndex] = null;
+        updateSelectionUI();
+        renderHand();
+      }
+      function updateSelectionUI() {
+        for (let i = 0; i < 2; i++) {
+          const slot = document.getElementById(`slot-${i}`);
+          const cardIndex = selectedCards[i];
+          if (cardIndex !== null && hand[cardIndex]) {
+            slot.innerText = hand[cardIndex].formula;
+            slot.classList.add("filled");
+          } else {
+            slot.innerText = `${i + 1}枚目`;
+            slot.classList.remove("filled");
+          }
+        }
+        document.getElementById("action-btn").style.display =
+          selectedCards[0] !== null && selectedCards[1] !== null
+            ? "block"
+            : "none";
+      }
+      function updateUI() {
+        document.getElementById("stage-display").innerText = `STAGE: ${stage}`;
+        document.getElementById("score-display").innerText = `SCORE: ${score}`;
+        document.getElementById("player-hp").innerText =
+          `❤️ HP: ${playerHp} / ${playerMaxHp}`;
+        if (playerHp <= 30) {
+          document.getElementById("player-hp").style.color = "#e74c3c";
+        } else {
+          document.getElementById("player-hp").style.color = "#2ecc71";
+        }
+        const percent = Math.max(0, (enemyHp / currentEnemy.hp) * 100);
+        document.getElementById("enemy-hp-fill").style.width = `${percent}%`;
+      }
+      function executeReaction() {
+        const card1 = hand[selectedCards[0]];
+        const card2 = hand[selectedCards[1]];
+        const isStandardPair =
+          (card1.type === "cation" && card2.type === "anion") ||
+          (card1.type === "anion" && card2.type === "cation");
+        let match = null;
+        for (let rx of REACTION_TABLE) {
+          if (
+            (rx.pairs[0] === card1.id && rx.pairs[1] === card2.id) ||
+            (rx.pairs[1] === card1.id && rx.pairs[0] === card2.id)
+          ) {
+            match = rx;
+            break;
+          }
+        }
+        let damage = 6;
+        let logText = `${card1.formula} と ${card2.formula} を混ぜた！<br>特に反応は見られなかった。`;
+        let effectBonusText = "";
+        if (match) {
+          damage = match.baseDmg + 5;
+          logText = `【攻撃】${match.product} が生成！(${match.color})<br>`;
+          if (match.color.includes(currentEnemy.color)) {
+            if (
+              match.color === currentEnemy.color ||
+              match.color === currentEnemy.color + "色"
+            ) {
+              damage = Math.floor(damage * 2.5);
+              effectBonusText = `<span style="color:#f1c40f; font-weight:bold;">★弱点 x2.5！★</span>`;
+            } else {
+              damage = Math.floor(damage * 1.5);
+              effectBonusText = `<span style="color:#3498db; font-weight:bold;;">◆部分一致 x1.5！◆</span>`;
+            }
+          }
+        }
+        let gainedScore = isStandardPair ? damage * 2 : damage;
+        score += gainedScore;
+        logText += effectBonusText;
+        enemyHp -= damage;
+        const sprite = document.getElementById("enemy-sprite");
+        sprite.classList.add("shake");
+        setTimeout(() => sprite.classList.remove("shake"), 400);
+        logText += `敵に ${damage} ダメージ！<br>`;
+        hand[selectedCards[0]] = null;
+        hand[selectedCards[1]] = null;
+        selectedCards = [null, null];
+        updateUI();
+        updateSelectionUI();
+        if (enemyHp <= 0) {
+          setTimeout(() => {
+            const killScoreBonus = stage * 100;
+            score += killScoreBonus;
+            playerHp = Math.min(playerMaxHp, playerHp + 20);
+            stage++;
+            document.getElementById("log-area").innerHTML =
+              `敵を撃破！HP回復(+20)<br>STAGE ${stage} に進みます。`;
+            spawnEnemy();
+            drawHand(false);
+            updateUI();
+          }, 1200);
+        } else {
+          setTimeout(() => {
+            // タイムラグの間に敵がすでに死んでいないか再チェック（安全対策）
+            if (enemyHp <= 0) return;
+            const enemyAtk = currentEnemy.atk;
+            playerHp -= enemyAtk;
+            updateUI();
+            document.getElementById("log-area").innerHTML =
+              `${logText}<span class="no-wrap" style="color:#e74c3c;">【反撃】敵の攻撃！ ${enemyAtk} ダメージを受けた！</span>`;
+            if (playerHp <= 0) {
+              playerHp = 0;
+              updateUI();
+              setTimeout(() => triggerGameOver(), 600);
+            } else {
+              drawHand(false);
+            }
+          }, 1200);
+        }
+      }
+      function triggerGameOver() {
+        document.getElementById("result-stage").innerText =
+          `到達ステージ: STAGE ${stage}`;
+        document.getElementById("result-score").innerText =
+          `最終スコア: ${score}`;
+        document.getElementById("gameover-screen").style.display = "flex";
+      }
+      initGame();
+    </script>
+  </body>
+</html>
